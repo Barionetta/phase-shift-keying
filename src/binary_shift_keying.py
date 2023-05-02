@@ -10,5 +10,13 @@ import scipy.signal as signal
 from numpy.random import sample
 
 class BPKS:
-    def __init__(self) -> None:
+    def __init__(self, sampling_frec, symbol_rate, bits_num) -> None:
+        pass
+
+    def modulation():
+        "Function for signal modulation"
+        pass
+
+    def demodulation():
+        "Function for signal demodulation"
         pass
