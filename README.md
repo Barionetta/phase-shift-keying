@@ -2,8 +2,6 @@
 ## Spis treści
 * [Opis](#opis)
 * [Technologie](#technologie)
-* [Uruchomienie] (#uruchomienie)
-* [Autorzy] (#autorzy)
  
  ## Opis
  Projekt ten został stworzony w ramach kursu Niezawodność i Diagnostyka Układów Cyfrowych (NiDUC).
