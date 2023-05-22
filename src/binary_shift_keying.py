@@ -6,8 +6,9 @@ __version__ = '0.1.0'
 __author__ = 'Katarzyna Matuszek, Miłosz Siemiński'
 
 import numpy as np
+import csv
 
-class BPKS:
+class BPSK:
     ''' Class for Binary Phase Shift Keying model
 
     Parameters
@@ -33,7 +34,7 @@ class BPKS:
 
 
     def generateCarryWave(self):
-        ''''Function to generate four carry waves
+        '''Function to generate four carry waves
         Returns
         -------
         carry_waves [list]: A list of ndarrays of carry waves'''
@@ -56,19 +57,19 @@ class BPKS:
         '''Function for signal modulation
         Returns
         -------
-        transmited_signal [ndarray]: Signal from transmitter'''
+        transmitted_signal [ndarray]: Signal from transmitter'''
         cont_msg = np.repeat(message, self.samp_per_bit)
         transmitted_signal = []
         for i in range(0, cont_msg.size, 2):
-            if(cont_msg[i] == 0):
+            if cont_msg[i] == 0:
                 transmitted_signal.append(carry_zeros[i])
-            elif(cont_msg[i] == 1):
+            elif cont_msg[i] == 1:
                 transmitted_signal.append(carry_ones[i])      
         transmitted_signal = np.asarray(transmitted_signal)
         return transmitted_signal
 
     def addNoise(self, signal):
-        '''Function which add noise to the transmitted signal
+        '''Function which adds noise to the transmitted signal
         Returns
         -------
         noisy_signal [ndarray]: Signal with noise'''
@@ -80,18 +81,36 @@ class BPKS:
         '''Function for signal demodulation
         Returns
         -------
-        recieved_message [ndarray]: Message from reciever'''
-        recieved_signal = []
-        bits_signals = np.split(signal, self.bits_num)
+        received_message [ndarray]: Message from receiver'''
+        received_signal = []
+        bits_signals = np.split(signal, self.bits_num / 2)
         for bit_signal in bits_signals:
-            phase = np.angle(np.ftt.ftt(bit_signal), deg=True)
-            if(phase == 0):
-                recieved_signal.append(0)
-            elif(phase == 180.0):
-                recieved_signal.append(1)
-        recieved_signal.reverse()
-        recieved_signal = np.asarray(recieved_signal)
-        return recieved_signal
+            phase = np.angle(np.fft.fft(bit_signal), deg=True)
+            received_bit = np.where(phase == 0, 0, 1)
+            received_signal.append(received_bit)
+        received_signal = np.concatenate(received_signal[::-1])
+        return received_signal
+    
+    def calculateBER(self, original_message, received_message):
+        '''Function to calculate Bit Error Rate (BER)
+        Returns
+        -------
+        ber [float]: Bit Error Rate'''
+        errors = np.sum(original_message != received_message)
+        ber = errors / self.bits_num
+        return ber
+
+
+    def save_to_csv(self, file_path, float_data):
+        # Open the CSV file in 'write' mode with semicolon delimiter
+        with open(file_path, 'w', newline='') as csvfile:
+            writer = csv.writer(csvfile, delimiter=';')
+            
+            # Write the header row
+            writer.writerow(['BPSK', 'BER', 'Sampling Frec', 'Carry Frec', 'Bits Num', 'Noise'])
+            
+            # Write the data row
+            writer.writerow(['', float_data, self.sampling_frec, self.carry_frec, self.bits_num, self.noise])
 
     def simulate(self):
         '''Function which simulates BPSK modulation'''
@@ -103,5 +122,8 @@ class BPKS:
         np.save('data/output/BPSK/signal.npy', signal)
         noisy_signal = self.addNoise(signal)
         np.save('data/output/BPSK/noisy_signal.npy', noisy_signal)
-        recieved_signal = self.demodulation(noisy_signal)
-        np.save('data/output/BPSK/recieved_signal.npy', recieved_signal)
+        received_signal = self.demodulation(noisy_signal)
+        np.save('data/output/BPSK/received_signal.npy', received_signal)
+        ber = self.calculateBER(message,received_signal)
+        self.save_to_csv('data/output/BPSK/ber.csv', ber)
+        

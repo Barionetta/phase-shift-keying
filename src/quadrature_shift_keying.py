@@ -6,8 +6,9 @@ __version__ = '0.1.0'
 __author__ = 'Katarzyna Matuszek, Miłosz Siemiński'
 
 import numpy as np
+import csv
 
-class QPKS:
+class QPSK:
     ''' Class for Quadrature Phase Shift Keying model
 
     Parameters
@@ -87,26 +88,45 @@ class QPKS:
         '''Function for signal demodulation
         Returns
         -------
-        recieved_message [ndarray]: Message from reciever'''
-        recieved_signal = []
-        bits_signals = np.split(signal, (self.bits_num/2))
+        received_message [ndarray]: Message from receiver'''
+        received_signal = []
+        bits_signals = np.split(signal, self.bits_num / 2)
         for bits_signal in bits_signals:
-            phase = np.angle(np.ftt.ftt(bits_signal), deg=True)
-            if(phase == 45.0):
-                recieved_signal.append(1)
-                recieved_signal.append(1)
-            elif(phase == 135.0):
-                recieved_signal.append(0)
-                recieved_signal.append(1)
-            elif(phase == 225.0):
-                recieved_signal.append(0)
-                recieved_signal.append(0)
-            elif(phase == 315.0):
-                recieved_signal.append(1)
-                recieved_signal.append(0)
-        recieved_signal.reverse()
-        recieved_signal = np.asarray(recieved_signal)
-        return recieved_signal
+            in_phase = bits_signal.real
+            quadrature = bits_signal.imag
+            received_bit = []
+            for i in range(0, len(in_phase), 2):
+                if in_phase[i] >= 0 and quadrature[i] >= 0:
+                    received_bit.extend([0, 0])
+                elif in_phase[i] < 0 and quadrature[i] >= 0:
+                    received_bit.extend([0, 1])
+                elif in_phase[i] < 0 and quadrature[i] < 0:
+                    received_bit.extend([1, 1])
+                elif in_phase[i] >= 0 and quadrature[i] < 0:
+                    received_bit.extend([1, 0])
+            received_signal.extend(received_bit)
+        received_signal = np.asarray(received_signal)
+        return received_signal
+    
+    def calculateBER(self, original_message, received_message):
+        '''Function to calculate Bit Error Rate (BER)
+        Returns
+        -------
+        ber [float]: Bit Error Rate'''
+        errors = np.sum(original_message != received_message)
+        ber = errors / self.bits_num
+        return ber
+    
+    def save_to_csv(self, file_path, float_data):
+        # Open the CSV file in 'write' mode with semicolon delimiter
+        with open(file_path, 'w', newline='') as csvfile:
+            writer = csv.writer(csvfile, delimiter=';')
+            
+            # Write the header row
+            writer.writerow(['QPSK', 'BER', 'Sampling Frec', 'Carry Frec', 'Bits Num', 'Noise'])
+            
+            # Write the data row
+            writer.writerow(['', float_data, self.sampling_frec, self.carry_frec, self.bits_num, self.noise])
 
     def simulate(self):
         '''Function which simulates OPSK modulation'''
@@ -118,5 +138,7 @@ class QPKS:
         np.save('data/output/QPSK/signal.npy', signal)
         noisy_signal = self.addNoise(signal)
         np.save('data/output/QPSK/noisy_signal.npy', noisy_signal)
-        recieved_signal = self.demodulation(noisy_signal)
-        np.save('data/output/QPSK/recieved_signal.npy', recieved_signal)
+        received_signal = self.demodulation(noisy_signal)
+        np.save('data/output/QPSK/received_signal.npy', received_signal)
+        ber = self.calculateBER(message,received_signal)
+        self.save_to_csv('data/output/QPSK/ber.csv', ber)
