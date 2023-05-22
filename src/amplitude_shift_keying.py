@@ -6,6 +6,7 @@ __version__ = '0.1.0'
 __author__ = 'Katarzyna Matuszek, Miłosz Siemiński'
 
 import numpy as np
+import csv
 
 class ASK:
     ''' Class for Amplitude Shift Keying model
@@ -87,7 +88,26 @@ class ASK:
                 recieved_message.append(0)
         recieved_message = np.asarray(recieved_message)
         return recieved_message
-
+    
+    def calculateBER(self, original_message, received_message):
+        '''Function to calculate Bit Error Rate (BER)
+        Returns
+        -------
+        ber [float]: Bit Error Rate'''
+        errors = np.sum(original_message != received_message)
+        ber = errors / self.bits_num
+        return ber
+    def save_to_csv(self, file_path, float_data):
+        # Open the CSV file in 'write' mode with semicolon delimiter
+        with open(file_path, 'w', newline='') as csvfile:
+            writer = csv.writer(csvfile, delimiter=';')
+                
+            # Write the header row
+            writer.writerow(['ASK', 'BER', 'Sampling Frec', 'Carry Frec', 'Bits Num', 'Noise'])
+                
+            # Write the data row
+            writer.writerow(['', float_data, self.sampling_frec, self.carry_frec, self.bits_num, self.noise])
+            
     def simulate(self):
         '''Function which simulates ASK modulation'''
 
@@ -99,7 +119,9 @@ class ASK:
         np.save('data/output/ASK/signal.npy', signal)
         noisy_signal = self.addNoise(signal)
         np.save('data/output/ASK/noisy_signal.npy', noisy_signal)
-        recieved_signal = self.demodulation(noisy_signal)
-        np.save('data/output/ASK/recieved_signal.npy', recieved_signal)
+        received_signal = self.demodulation(noisy_signal)
+        np.save('data/output/ASK/received_signal.npy', received_signal)
+        ber = self.calculateBER(message,received_signal)
+        self.save_to_csv('data/output/ASK/ber.csv', ber)
         
         
