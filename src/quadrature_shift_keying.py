@@ -2,7 +2,7 @@
 """
     This file contains QPSK modulation model
 """
-__version__ = '0.1.0'
+__version__ = '0.1.2'
 __author__ = 'Katarzyna Matuszek, Miłosz Siemiński'
 
 import numpy as np
@@ -21,7 +21,7 @@ class QPSK:
     Attributes
     ----------
     time [ndarray]: Simulation time domain
-    samp_per_bit [int]: How many samples are for one bit
+    samp_per_symbol [int]: How many samples are for one symbol (for QPSK one symbol contains two bits)
     '''
 
     def __init__(self, sampling_frec, carry_frec, bits_num, noise):
@@ -30,22 +30,18 @@ class QPSK:
         self.bits_num = bits_num
         self.noise = noise
         self.time = np.linspace(0, 1, sampling_frec)
-        self.samp_per_bit = int(sampling_frec / bits_num)
+        self.samp_per_symbol = int(sampling_frec / (bits_num/2))
 
     def generateCarryWave(self):
-        '''Function to generate four carry waves
+        '''Function to generate carry waves
         Returns
         -------
         carry_waves [list]: A list of ndarrays of carry waves'''
-        carry_waves = []
-        carry_11 = np.cos(2 * np.pi * self.carry_frec * self.time + np.pi/4)
-        carry_01 = np.cos(2 * np.pi * self.carry_frec * self.time + (3*np.pi)/4)
-        carry_00 = np.cos(2 * np.pi * self.carry_frec * self.time + (5*np.pi)/4)
-        carry_10 = np.cos(2 * np.pi * self.carry_frec * self.time + (7*np.pi)/4)
-        carry_waves.append(carry_11)
-        carry_waves.append(carry_01)
-        carry_waves.append(carry_00)
-        carry_waves.append(carry_10)
+        carry_i = np.cos(2 * np.pi * self.carry_frec * self.time)
+        carry_q = np.sin(2 * np.pi * self.carry_frec * self.time)
+        carry_i = np.split(carry_i, self.bits_num/2)
+        carry_q = np.split(carry_q, self.bits_num/2)
+        carry_waves = [carry_i, carry_q]
         return carry_waves
     
     def generateSignal(self):
@@ -56,25 +52,29 @@ class QPSK:
         message = np.random.randint(2, size=self.bits_num)
         return message
 
-    def modulation(self, message, carry_11, carry_01, carry_00, carry_10):
+    def modulation(self, message, carry_i, carry_q):
         '''Function for signal modulation
         Returns
         -------
-        transmited_signal [ndarray]: Signal from transmitter'''
-        cont_msg = np.repeat(message, self.samp_per_bit)
-        transmitted_signal = []
-        for i in range(0, cont_msg.size, 2):
-            if(cont_msg[i] == 1 and cont_msg[i+1] == 1):
-                transmitted_signal.append(carry_11[i])
-            elif(cont_msg[i] == 0 and cont_msg[i+1] == 1):
-                transmitted_signal.append(carry_01[i])
-            elif(cont_msg[i] == 0 and cont_msg[i+1] == 0):
-                transmitted_signal.append(carry_00[i])
-            elif(cont_msg[i] == 1 and cont_msg[i+1] == 0):
-                transmitted_signal.append(carry_10[i])            
-        transmitted_signal = np.asarray(transmitted_signal)
+        transmitted_signal [ndarray]: Signal from transmitter'''
+        trans_i = np.copy(carry_i)
+        trans_q = np.copy(carry_q)
+        for i in range(len(carry_i)):
+            if (message[2*i] == 0):
+                q_sing = 1
+            else:
+                q_sing = -1
+            if (message[2*i+1] == 0):
+                i_sing = 1
+            else:
+                i_sing = -1
+            trans_i[i] = i_sing * trans_i[i]
+            trans_q[i] = q_sing * trans_q[i]
+        trans_i = np.ravel(trans_i)
+        trans_q = np.ravel(trans_q)
+        transmitted_signal = trans_i + trans_q
         return transmitted_signal
-
+        
     def addNoise(self, signal):
         '''Function which add noise to the transmitted signal
         Returns
@@ -84,27 +84,26 @@ class QPSK:
         noisy_signal = signal + noise
         return noisy_signal
 
-    def demodulation(self, signal):
+    def demodulation(self, signal, carry_i, carry_q):
         '''Function for signal demodulation
         Returns
         -------
         received_message [ndarray]: Message from receiver'''
-        received_signal = []
-        bits_signals = np.split(signal, self.bits_num / 2)
-        for bits_signal in bits_signals:
-            in_phase = bits_signal.real
-            quadrature = bits_signal.imag
-            received_bit = []
-            for i in range(0, len(in_phase), 2):
-                if in_phase[i] >= 0 and quadrature[i] >= 0:
-                    received_bit.extend([0, 0])
-                elif in_phase[i] < 0 and quadrature[i] >= 0:
-                    received_bit.extend([0, 1])
-                elif in_phase[i] < 0 and quadrature[i] < 0:
-                    received_bit.extend([1, 1])
-                elif in_phase[i] >= 0 and quadrature[i] < 0:
-                    received_bit.extend([1, 0])
-            received_signal.extend(received_bit)
+        received_signal = np.arange(self.bits_num)
+        signal = np.split(signal, self.bits_num/2)
+        for i in range(len(signal)):
+            in_phase = np.sum(signal[i] * carry_i[i])
+            quadrature = np.sum(signal[i] * carry_q[i])
+            if(in_phase > 0):
+                q_bit = 0
+            else:
+                q_bit = 1
+            if(quadrature > 0):
+                i_bit = 0
+            else:
+                i_bit = 1
+            received_signal[2*i] = i_bit
+            received_signal[2*i+1] = q_bit
         received_signal = np.asarray(received_signal)
         return received_signal
     
@@ -117,28 +116,38 @@ class QPSK:
         ber = errors / self.bits_num
         return ber
     
-    def save_to_csv(self, file_path, float_data):
-        # Open the CSV file in 'write' mode with semicolon delimiter
-        with open(file_path, 'w', newline='') as csvfile:
+    def save_to_csv(self, float_data, EbNodB):
+        '''Function which save statistics from simulation to bers.csv file'''
+        with open('data/output/bers.csv', 'a', newline='') as csvfile:
             writer = csv.writer(csvfile, delimiter=';')
-            
-            # Write the header row
-            writer.writerow(['QPSK', 'BER', 'Sampling Frec', 'Carry Frec', 'Bits Num', 'Noise'])
-            
-            # Write the data row
-            writer.writerow(['', float_data, self.sampling_frec, self.carry_frec, self.bits_num, self.noise])
+            writer.writerow(['QPSK', self.sampling_frec, self.carry_frec, self.bits_num, np.round(self.noise, 1), float_data, EbNodB])
 
-    def simulate(self):
-        '''Function which simulates OPSK modulation'''
+    def one_run(self, EbNodB):
+        '''Function which simulates one QPSK modulation'''
+        carry_waves = self.generateCarryWave()
+        message = self.generateSignal()
+        signal = self.modulation(message, carry_waves[0], carry_waves[1])
+        noisy_signal = self.addNoise(signal)
+        received_signal = self.demodulation(noisy_signal, carry_waves[0], carry_waves[1])
+        ber = self.calculateBER(message,received_signal)
+        self.save_to_csv(ber, EbNodB)
 
+    def demo_run(self):
+        '''Function which demonstrate QPSK modulation'''
         carry_waves = self.generateCarryWave()
         message = self.generateSignal()
         np.save('data/output/QPSK/message.npy', message)
-        signal = self.modulation(message, carry_waves[0], carry_waves[1], carry_waves[2], carry_waves[3])
+        signal = self.modulation(message, carry_waves[0], carry_waves[1])
         np.save('data/output/QPSK/signal.npy', signal)
         noisy_signal = self.addNoise(signal)
         np.save('data/output/QPSK/noisy_signal.npy', noisy_signal)
-        received_signal = self.demodulation(noisy_signal)
+        received_signal = self.demodulation(noisy_signal, carry_waves[0], carry_waves[1])
         np.save('data/output/QPSK/received_signal.npy', received_signal)
-        ber = self.calculateBER(message,received_signal)
-        self.save_to_csv('data/output/QPSK/ber.csv', ber)
+
+    def simulate(self):
+        '''Function which simulates many QPSK modulations.'''
+        for n in range(12):
+            EbNo = 10.0**(n/10.0)
+            self.noise = 1/np.sqrt(2*EbNo)*4
+            self.one_run(n)
+        print("Koniec symulacji modulacji QPSK") 

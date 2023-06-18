@@ -2,7 +2,7 @@
 """
     This file contains ASK modulation model
 """
-__version__ = '0.1.0'
+__version__ = '0.1.2'
 __author__ = 'Katarzyna Matuszek, Miłosz Siemiński'
 
 import numpy as np
@@ -97,22 +97,26 @@ class ASK:
         errors = np.sum(original_message != received_message)
         ber = errors / self.bits_num
         return ber
-    def save_to_csv(self, file_path, float_data):
-        # Open the CSV file in 'write' mode with semicolon delimiter
-        with open(file_path, 'w', newline='') as csvfile:
+    
+    def save_to_csv(self, float_data, EbNodB):
+        '''Function which save statistics from simulation to bers.csv file'''
+        with open('data/output/bers.csv', 'a', newline='') as csvfile:
             writer = csv.writer(csvfile, delimiter=';')
-                
-            # Write the header row
-            writer.writerow(['ASK', 'BER', 'Sampling Frec', 'Carry Frec', 'Bits Num', 'Noise'])
-                
-            # Write the data row
-            writer.writerow(['', float_data, self.sampling_frec, self.carry_frec, self.bits_num, self.noise])
-            
-    def simulate(self):
-        '''Function which simulates ASK modulation'''
+            writer.writerow(['ASK', self.sampling_frec, self.carry_frec, self.bits_num, np.round(self.noise, 1), float_data, EbNodB])
 
+    def one_run(self, EbNodB):
+        '''Function which simulates one ASK modulation'''
         carry_wave = self.generateCarryWave()
-        np.save('data/output/ASK/carry_wave.npy', carry_wave)
+        message = self.generateSignal()
+        signal = self.modulation(message, carry_wave)
+        noisy_signal = self.addNoise(signal)
+        received_signal = self.demodulation(noisy_signal)
+        ber = self.calculateBER(message,received_signal)
+        self.save_to_csv(ber, EbNodB)
+
+    def demo_run(self):
+        '''Function which demonstrate ASK modulation'''
+        carry_wave = self.generateCarryWave()
         message = self.generateSignal()
         np.save('data/output/ASK/message.npy', message)
         signal = self.modulation(message, carry_wave)
@@ -121,7 +125,12 @@ class ASK:
         np.save('data/output/ASK/noisy_signal.npy', noisy_signal)
         received_signal = self.demodulation(noisy_signal)
         np.save('data/output/ASK/received_signal.npy', received_signal)
-        ber = self.calculateBER(message,received_signal)
-        self.save_to_csv('data/output/ASK/ber.csv', ber)
-        
+
+    def simulate(self):
+        '''Function which simulates many ASK modulations.'''
+        for n in range(12):
+            EbNo = 10.0**(n/10.0)
+            self.noise = 1/np.sqrt(2*EbNo)*2
+            self.one_run(n)
+        print("Koniec symulacji modulacji ASK")        
         

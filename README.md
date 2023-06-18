@@ -19,7 +19,6 @@ Projekt został napisany w całości w języku Python 3 z następującymi biblio
 * matplotlib==3.7.1
 * numpy==1.24.3
 * pandas==2.0.1
-* scipy==1.10.1
 * seaborn==0.12.2
 
 ## Uruchomienie

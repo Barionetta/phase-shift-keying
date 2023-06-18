@@ -2,7 +2,7 @@
 """
     This file contains BPSK modulation model
 """
-__version__ = '0.1.0'
+__version__ = '0.1.2'
 __author__ = 'Katarzyna Matuszek, Miłosz Siemiński'
 
 import numpy as np
@@ -32,18 +32,14 @@ class BPSK:
         self.time = np.linspace(0, 1, sampling_frec)
         self.samp_per_bit = int(sampling_frec / bits_num)
 
-
     def generateCarryWave(self):
-        '''Function to generate four carry waves
+        '''Function to generate sine carry wave
         Returns
         -------
-        carry_waves [list]: A list of ndarrays of carry waves'''
-        carry_waves = []
-        carry_zeros = np.cos(2 * np.pi * self.carry_frec * self.time)
-        carry_ones = np.cos(2 * np.pi * self.carry_frec * self.time + np.pi)
-        carry_waves.append(carry_zeros)
-        carry_waves.append(carry_ones)
-        return carry_waves
+        carry_wave [ndarray]: Carry wave signal'''
+        carry_wave = np.sin(2 * np.pi * self.carry_frec * self.time)
+        carry_wave = np.split(carry_wave, self.bits_num)
+        return carry_wave
     
     def generateSignal(self):
         '''Function to generate binary signal
@@ -53,19 +49,16 @@ class BPSK:
         message = np.random.randint(2, size=self.bits_num)
         return message
     
-    def modulation(self, message, carry_zeros, carry_ones):
+    def modulation(self, message, carry_wave):
         '''Function for signal modulation
         Returns
         -------
         transmitted_signal [ndarray]: Signal from transmitter'''
-        cont_msg = np.repeat(message, self.samp_per_bit)
-        transmitted_signal = []
-        for i in range(0, cont_msg.size, 2):
-            if cont_msg[i] == 0:
-                transmitted_signal.append(carry_zeros[i])
-            elif cont_msg[i] == 1:
-                transmitted_signal.append(carry_ones[i])      
-        transmitted_signal = np.asarray(transmitted_signal)
+        transmitted_signal = np.copy(carry_wave)
+        for i in range(len(message)):
+            if(message[i] == 1):
+                transmitted_signal[i] = -1 * transmitted_signal[i]
+        transmitted_signal = np.ravel(transmitted_signal)
         return transmitted_signal
 
     def addNoise(self, signal):
@@ -77,20 +70,23 @@ class BPSK:
         noisy_signal = signal + noise
         return noisy_signal
 
-    def demodulation(self, signal):
+    def demodulation(self, signal, carry_wave):
         '''Function for signal demodulation
         Returns
         -------
         received_message [ndarray]: Message from receiver'''
-        received_signal = []
-        bits_signals = np.split(signal, self.bits_num / 2)
-        for bit_signal in bits_signals:
-            phase = np.angle(np.fft.fft(bit_signal), deg=True)
-            received_bit = np.where(phase == 0, 0, 1)
-            received_signal.append(received_bit)
-        received_signal = np.concatenate(received_signal[::-1])
+        received_signal = np.arange(self.bits_num)
+        signal = np.split(signal, self.bits_num)
+        for i in range(len(signal)):
+            phase = np.sum(signal[i] * carry_wave[i])
+            if(phase > 0):
+                bit = 0
+            else:
+                bit = 1
+            received_signal[i] = bit
+        received_signal = np.asarray(received_signal)
         return received_signal
-    
+
     def calculateBER(self, original_message, received_message):
         '''Function to calculate Bit Error Rate (BER)
         Returns
@@ -100,30 +96,39 @@ class BPSK:
         ber = errors / self.bits_num
         return ber
 
-
-    def save_to_csv(self, file_path, float_data):
-        # Open the CSV file in 'write' mode with semicolon delimiter
-        with open(file_path, 'w', newline='') as csvfile:
+    def save_to_csv(self, float_data, EbNodB):
+        '''Function which save statistics from simulation to bers.csv file'''
+        with open('data/output/bers.csv', 'a', newline='') as csvfile:
             writer = csv.writer(csvfile, delimiter=';')
-            
-            # Write the header row
-            writer.writerow(['BPSK', 'BER', 'Sampling Frec', 'Carry Frec', 'Bits Num', 'Noise'])
-            
-            # Write the data row
-            writer.writerow(['', float_data, self.sampling_frec, self.carry_frec, self.bits_num, self.noise])
+            writer.writerow(['BPSK', self.sampling_frec, self.carry_frec, self.bits_num, np.round(self.noise, 1), float_data, EbNodB])
 
-    def simulate(self):
-        '''Function which simulates BPSK modulation'''
+    def one_run(self, EbNodB):
+        '''Function which simulates one BPSK modulation'''
+        carry_wave = self.generateCarryWave()
+        message = self.generateSignal()
+        signal = self.modulation(message, carry_wave)
+        noisy_signal = self.addNoise(signal)
+        received_signal = self.demodulation(noisy_signal, carry_wave)
+        ber = self.calculateBER(message,received_signal)
+        self.save_to_csv(ber, EbNodB)
 
-        carry_waves = self.generateCarryWave()
+    def demo_run(self):
+        '''Function which demonstrate BPSK modulation'''
+        carry_wave = self.generateCarryWave()
         message = self.generateSignal()
         np.save('data/output/BPSK/message.npy', message)
-        signal = self.modulation(message, carry_waves[0], carry_waves[1])
+        signal = self.modulation(message, carry_wave)
         np.save('data/output/BPSK/signal.npy', signal)
         noisy_signal = self.addNoise(signal)
         np.save('data/output/BPSK/noisy_signal.npy', noisy_signal)
-        received_signal = self.demodulation(noisy_signal)
+        received_signal = self.demodulation(noisy_signal, carry_wave)
         np.save('data/output/BPSK/received_signal.npy', received_signal)
-        ber = self.calculateBER(message,received_signal)
-        self.save_to_csv('data/output/BPSK/ber.csv', ber)
+
+    def simulate(self):
+        '''Function which simulates many BPSK modulations.'''
+        for n in range(12):
+            EbNo = 10.0**(n/10.0)
+            self.noise = 1/np.sqrt(2*EbNo)*4
+            self.one_run(n)
+        print("Koniec symulacji modulacji BPSK") 
         
