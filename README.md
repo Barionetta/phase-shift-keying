@@ -1,7 +1,12 @@
 ### Modulacje Phase Shift Keying (PSK)
+
+Projekt dotyczący modulacji PSK
+
 ## Spis treści
 * [Opis](#opis)
 * [Technologie](#technologie)
+* [Uruchomienie](#uruchomienie)
+* [Autorzy](#autorzy)
  
  ## Opis
  Projekt ten został stworzony w ramach kursu Niezawodność i Diagnostyka Układów Cyfrowych (NiDUC).
@@ -13,28 +18,41 @@
  * Quadrature Phase Shift Keying (QPSK)
  * Amplitude Shift Keying (ASK)
 
+Cały projekt składa się z dwóch części. Pierwszą z nich jest moduł `psk-simulator`, w którego skład wchodzą klasy i funkcję odpowiedzialne za symulację modulacji fazowych sygnałów. Druga część składa się z notatników, w których zaprezentowano wyniki symulacji.
 
  ## Technologie
 Projekt został napisany w całości w języku Python 3 z następującymi bibliotekami
-* matplotlib==3.7.1
-* numpy==1.24.3
-* pandas==2.0.1
-* seaborn==0.12.2
+* `matplotlib==3.7.1`
+* `numpy==1.24.3`
+* `pandas==2.0.1`
+* `seaborn==0.12.2`
 
 ## Uruchomienie
 Aby lokalnie uruchomić projekt, najpierw należy sklonować repozytorium
 
-``` bash
-git clone https://github.com/Raganella/phase-shift-keying.git
+```bash
+git clone https://github.com/Barionetta/phase-shift-keying.git
 ```
-Następnie zainstalować wymagane biblioteki
+Następnie stworzyć wirtualne środowisko ( tutaj pokazane na przykładzie condy )
 
 ```bash
-pip install -r requirements.txt
+conda create --name psk-env
 ```
-Uruchomić kod
+
+Później należy aktywować środowisko
+
 ```bash
-python main.py
+conda activate psk-env
+```
+
+Na końcu zainstalować wymagane paczki
+```bash
+pip install -e .
+```
+
+Aby odinstalować projekt, należy użyć następującej komendy
+```bash
+pip uninstall psk-simulator
 ```
 
 ## Autorzy
