@@ -25,22 +25,22 @@ def _calculateBER(self, original_message, received_message):
     return ber
 
 
-def _save_to_csv(self, float_data, EbNodB):
+def _save_to_csv(model, float_data, EbNodB):
     '''Function which save statistics from simulation to bers.csv file'''
     with open('data/output/bers.csv', 'a', newline='') as csvfile:
         writer = csv.writer(csvfile, delimiter=';')
-        writer.writerow(['BPSK', self.sampling_frec, self.carry_frec, self.bits_num, np.round(self.noise, 1), float_data, EbNodB])
+        writer.writerow([model.get_modulation_name(), model.sampling_frec, model.carry_frec, model.bits_num, np.round(model.noise, 1), float_data, EbNodB])
 
 
 def _simulate(model):
     '''Function which simulates many modulations.'''
     for n in range(12):
         EbNo = 10.0**(n/10.0)
-        noise = 1/np.sqrt(2*EbNo)*2
-        model.set_noise(noise) # dla psk *4
+        noise = 1/np.sqrt(2*EbNo)*4
+        model.set_noise(noise)
         signals = model.run()
         ber = _calculateBER(signals['message'], signals['received'])
-        _save_to_csv(ber, EbNo)
+        _save_to_csv(model, ber, EbNo)
         print("Koniec symulacji")
 
 
