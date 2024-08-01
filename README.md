@@ -22,10 +22,10 @@ Cały projekt składa się z dwóch części. Pierwszą z nich jest moduł `psk-
 
  ## Technologie
 Projekt został napisany w całości w języku Python 3 z następującymi bibliotekami
-* `matplotlib==3.7.1`
-* `numpy==1.24.3`
-* `pandas==2.0.1`
-* `seaborn==0.12.2`
+* `matplotlib==3.9.1`
+* `numpy==2.0.1`
+* `pandas==2.2.2`
+* `seaborn==0.13.2`
 
 ## Uruchomienie
 Aby lokalnie uruchomić projekt, najpierw należy sklonować repozytorium
@@ -52,7 +52,7 @@ pip install -e .
 
 Aby odinstalować projekt, należy użyć następującej komendy
 ```bash
-pip uninstall psk-simulator
+pip uninstall psksimulator
 ```
 
 ## Autorzy
